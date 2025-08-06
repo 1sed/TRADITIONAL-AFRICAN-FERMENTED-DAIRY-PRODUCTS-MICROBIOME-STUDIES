@@ -1,0 +1,15 @@
+
+# activate picrust2 environment
+source ...../miniconda3/etc/profile.d/conda.sh
+conda activate picrust2
+
+# set input and output paths
+FASTA="dna-sequences.fasta"
+TABLE="feature-table.tsv"
+OUTPUT_DIR="picrust2_out"
+
+# run picrust2 pipeline
+picrust2_pipeline.py -s $FASTA -i $TABLE -o $OUTPUT_DIR -p 4 --stratified
+
+# deactivate environment
+conda deactivate

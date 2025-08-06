@@ -1,0 +1,92 @@
+### ✅ **Pipeline to Get Taxa Groups per Sample with Frequencies**
+
+#### **Step 1: Import Data and Prepare Feature Table**
+qiime tools import\
+--type "SampleData[PairedEndSequencesWithQuality]"\
+--input-format PairedEndFastqManifestPhred33V2\
+--input-path /home/inserttherightpath..../data/manifest-paired-end.tsv\  
+--output-path /home/inserttherightpath/demuxed-dss.qza
+
+
+####demultiplex########
+
+qiime demux summarize\   
+--i-data demuxed-dss.qza\   
+--o-visualization demuxed-dss.qza.qzv
+
+
+
+#####################Denoising###################
+qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs demux.qza \
+  --p-trunc-len-f 250 \
+  --p-trunc-len-r 250 \
+  --o-table table.qza \
+  --o-representative-sequences rep-seqs.qza \
+  --o-denoising-stats denoising-stats.qza
+
+
+
+######echo "Step 2: Extracting V4 region from SILVA (515F–806R)"#####
+qiime feature-classifier extract-reads \
+  --i-sequences silva-138-99-seqs.qza \
+  --p-f-primer GTGCCAGCMGCCGCGGTAA \
+  --p-r-primer GGACTACHVGGGTWTCTAAT \
+  --p-trunc-len 250 \
+  --p-n-jobs 8 \
+  --o-reads silva-138-99-515F-806R.qza
+
+######echo "Step 3: Training Naive Bayes classifier"##########
+qiime feature-classifier fit-classifier-naive-bayes \
+  --i-reference-reads silva-138-99-515F-806R.qza \
+  --i-reference-taxonomy silva-138-99-tax.qza \
+  --o-classifier silva-138-99-515F-806R-classifier.qza
+
+#######echo "Step 4: Assigning taxonomy to representative sequences"#######
+qiime feature-classifier classify-sklearn \
+  --i-classifier silva-138-99-515F-806R-classifier.qza \
+  --i-reads rep-seqs.qza \
+  --o-classification taxonomy.qza
+
+
+##################Generate files for phyloseq object #################
+
+
+############ generate rooted tree for phylogeny #############
+qiime phylogeny align-to-tree-mafft-fasttree \
+  --i-sequences representative-sequences.qza \
+  --o-alignment aligned-rep-seqs.qza \
+  --o-masked-alignment masked-aligned-rep-seqs.qza \
+  --o-tree unrooted-tree.qza \
+  --o-rooted-tree rooted-tree.qza
+  
+  qiime tools export \
+  --input-path rooted-tree.qza \
+  --output-path exported-tree
+  
+  
+######function converting feature table.qza and taxonomic.qza to tsv and biom formats 
+
+qiime tools export \
+    --input-path taxonomy.qza \
+    --output-path exported_taxonomy
+
+##############this exports to biom
+qiime tools export \
+    --input-path table.qza \
+    --output-path exported_table
+
+###############converts biome to tsv format
+biom convert \
+    -i exported_table/feature-table.biom \
+    -o exported_table/feature-table.tsv \
+    --to-tsv
+    
+    
+###Summary of Files You’ll Get:
+
+#####| Output                 
+##| `exported-taxonomy/taxonomy.tsv`|        
+##| `exported_table/feature-table.tsv`|
+##|exported-tree/tree.nwk|
+##|metadata.csv|
